@@ -22,6 +22,9 @@ double miniSolve(double val1,double val2,char opperand) {
             return val1*val2;
         case '/':
             return val1/val2;
+        default:
+            perror("Invalid opperand has been detected");
+            exit(EXIT_FAILURE);
     }
 }
 
@@ -38,21 +41,52 @@ char* bufferHandler(char* buffer) {
     }
 
     for(size_t i = 0;i<bufferRealSize-1;i++) {
-//        printf("CHAR %ld = %c\n",i,buffer[i]);
-        if( buffer[i] < 42 ||
+        if(
+            buffer[i] < 40 ||
             buffer[i] > 57 ||
-            buffer[i] == '.' ||
-            buffer[i] == ',' ||
-            (!IS_IT_NUM(buffer[i]) && buffer[i] == buffer[i+1]))
-        {
+            buffer[i] == '.' || //Just the integers and opperrands are accepted in input formula, not the floats
+            buffer[i] == ','  //Floats are just available at in output
+        ) {
+
             printf("\x1b[31m""Invalid character in operation string at %ld\n",i);
-            printf("%s""\x1b[0m",buffer);
+
+            for(size_t j = 0;j<bufferRealSize-1;j++){
+                if(j == i) {
+                    printf("\033[4m""%c""\033[0m""\x1b[31m",buffer[j]);
+                }
+                else {
+                    printf("%c",buffer[j]);
+                }
+            }
+
+            printf("%c""\x1b[0m",buffer[bufferRealSize-1]);
+
             exit(EXIT_FAILURE);
         }
     }
 
     //INVALID CHARACTER CHECK
 
+    //PARENTHESIS CHECK
+
+    int parenthesisCount = 0;
+
+    for(size_t i = 0;i<bufferRealSize;i++) {
+        if(buffer[i] == '(') parenthesisCount++;
+        if(buffer[i] == ')') parenthesisCount--;
+    }
+
+    if(parenthesisCount > 0) {
+        perror("Less parenthesis must be used");
+        exit(EXIT_FAILURE);
+    }
+
+    if (parenthesisCount < 0){
+        perror("More parenthesis must be used");
+        exit(EXIT_FAILURE);
+    }
+
+    //PARENTHESIS CHECK
 
     //SPECIAL CONDITION CHECK
 
@@ -104,7 +138,29 @@ double solver(char* data) {
 
         }
         else {
-            push_char(&oppStack,data[i]);
+
+            if(data[i] != ')')
+                push_char(&oppStack,data[i]);
+            else {
+
+                while(*peek_char(&oppStack) != '(') {
+                    double val1 = pop_double(&finalStack),
+                          *val2 = peek_double(&finalStack);
+                    *val2 = miniSolve(*val2,val1, pop_char(&oppStack));
+                }
+
+                pop_char(&oppStack);
+
+                char *checkChar = peek_char(&oppStack);
+
+                if(checkChar != NULL && (*checkChar == '*' || *checkChar == '/')) {
+                    double val1 = pop_double(&finalStack),
+                            *val2 = peek_double(&finalStack);
+                    *val2 = miniSolve(*val2,val1, pop_char(&oppStack));
+                }
+
+            }
+
         }
 
     }
