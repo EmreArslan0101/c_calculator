@@ -45,7 +45,7 @@ char* bufferHandler(char* buffer) {
         if(
             buffer[i] < 40 ||
             buffer[i] > 57 ||
-            buffer[i] == ',' || //Floats are just available at in output
+            buffer[i] == ',' ||
             (!IS_IT_NUM(buffer[i]) && !IS_IT_NUM(buffer[i+1]) && buffer[i+1] != '(' && buffer[i] != ')')
         ) {
 
