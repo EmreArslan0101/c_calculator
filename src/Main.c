@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <math.h>
 #include "Stack.c"
 #include "Defines.c"
 
@@ -44,8 +45,8 @@ char* bufferHandler(char* buffer) {
         if(
             buffer[i] < 40 ||
             buffer[i] > 57 ||
-            buffer[i] == '.' || //Just the integers and opperrands are accepted in input formula, not the floats
-            buffer[i] == ','  //Floats are just available at in output
+            buffer[i] == ',' || //Floats are just available at in output
+            (!IS_IT_NUM(buffer[i]) && !IS_IT_NUM(buffer[i+1]) && buffer[i+1] != '(' && buffer[i] != ')')
         ) {
 
             printf("\x1b[31m""Invalid character in operation string at %ld\n",i);
@@ -117,11 +118,20 @@ double solver(char* data) {
         if(IS_IT_NUM(data[i])) {
 
             double currNum = 0;
+            char floatPartCount = 0,isFloat = false;
 
             while(IS_IT_NUM(data[i])) {
+                if(data[i] == '.') {
+                    i++;
+                    isFloat = true;
+                    continue;
+                }
+                if(isFloat) floatPartCount++;
                 currNum = currNum*10 + data[i++]-48;
             }
             i--;
+
+            currNum *= pow(10,-floatPartCount);
 
             char *currOpp = oppStack.size ? (peek_char(&oppStack)) : 0;
 
@@ -202,6 +212,8 @@ int main(int argc, char** argv) {
 //    printf("%s",buffer); // For showing final operation string while debugging or development
 
     printf(">>> %lf\n", solver(buffer));
+
+    free(buffer);
 
     return 0;
 

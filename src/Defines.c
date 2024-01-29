@@ -13,4 +13,6 @@
 
 #define printStack(UNIT_FORMAT,STACK) printArray(UNIT_FORMAT,STACK.real,STACK.size)
 
-#define IS_IT_NUM(val) (47 < val && val < 58)
+#define IS_IT_NUM(val) ((47 < val && val < 58) || val == '.')
+#define false 0
+#define true 1

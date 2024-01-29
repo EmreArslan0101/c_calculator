@@ -8,8 +8,9 @@ set(source_dir "${PROJECT_SOURCE_DIR}/src/")
 
 include_directories(${include_dir})
 
-file(GLOB source_files "${source_dir}/Main.c")
+file(GLOB source_files "${source_dir}Main.c")
 
 # Add the executable
 add_executable(c_calc "${source_files}")
+target_link_libraries(c_calc m)
 
