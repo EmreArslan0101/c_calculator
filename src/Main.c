@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 #include "Stack.c"
 #include "Defines.c"
 
@@ -23,6 +24,10 @@ double miniSolve(double val1,double val2,char opperand) {
             return val1*val2;
         case '/':
             return val1/val2;
+        case '^':
+            return pow(val1,val2);
+        case 'v':
+            return pow(val1,1/val2);
         default:
             perror("Invalid opperand has been detected");
             exit(EXIT_FAILURE);
@@ -35,19 +40,21 @@ char* bufferHandler(char* buffer) {
 
     //INVALID CHARACTER CHECK
 
-    if(buffer[0] == '/' || buffer[0] == '*') {
-        printf("\x1b[31m""Invalid character in operation string at 0 , \"/\" or \"*\" cannot be used as initial characters of operation\n");
+    if(buffer[0] == '/' || buffer[0] == '*' || buffer[0] == '^') {
+        printf("\x1b[31m""Invalid character in operation string at 0 , \"/\", \"*\" or \"^\" cannot be used as the initial character of operation\n");
         printf("%s""\x1b[0m",buffer);
         exit(EXIT_FAILURE);
     }
 
    for(size_t i = 0;i<bufferRealSize-1;i++) {
+
         if(
             buffer[i] < 40 ||
             buffer[i] > 57 ||
-            buffer[i] == ',' ||
-            (!IS_IT_NUM(buffer[i]) && !IS_IT_NUM(buffer[i+1]) && buffer[i+1] != '(' && buffer[i] != ')')
+            buffer[i] == ','
         ) {
+
+            if(buffer[i] == '^' || buffer[i] == 'v') continue;
 
             printf("\x1b[31m""Invalid character in operation string at %ld\n",i);
 
@@ -112,8 +119,10 @@ double solver(char* data) {
 
     Stack_double finalStack = newStack(double);
     Stack_char oppStack = newStack(char);
+    //Alternative modes are for making easier the flattening the input buffer process
+    bool isAlternativeModeOn_MINUS = false, isAlternativeModeOn_DIVISON = false;
 
-    for(size_t i = 0;i<strlen(data)-1;i++) {
+    for(size_t i = 0;i<strlen(data);i++) {
 
         if(IS_IT_NUM(data[i])) {
 
@@ -129,60 +138,97 @@ double solver(char* data) {
                 if(isFloat) floatPartCount++;
                 currNum = currNum*10 + data[i++]-48;
             }
+            //We should go back one char because in the 'while' loop we move one more char
             i--;
 
-            currNum *= pow(10,-floatPartCount);
-
-            char *currOpp = oppStack.size ? (peek_char(&oppStack)) : 0;
-
-            if(currOpp != NULL && (*currOpp == '*' || *currOpp == '/')) {
-
-                double *topVal = peek_double(&finalStack);
-
-                *topVal = miniSolve(*topVal,currNum,pop_char(&oppStack));
-
+            if(isAlternativeModeOn_MINUS) {
+                currNum *= -1;
+                isAlternativeModeOn_MINUS = false;
             }
-            else {
-                push_double(&finalStack,currNum);
+
+
+            if (isAlternativeModeOn_DIVISON) {
+                currNum = 1/currNum;
+                isAlternativeModeOn_DIVISON = false;
             }
+
+            push_double(&finalStack,currNum);
 
         }
         else {
 
-            if(data[i] != ')')
-                push_char(&oppStack,data[i]);
-            else {
+            //I ordered operands due to their precedence and if they are in parentheses or not
+            //For always uprising the precedence of parentheses, I put '(' in the highest precedence
+            //and also activate its solution process when it crossed with a ')'
 
-                while(*peek_char(&oppStack) != '(') {
-                    double val1 = pop_double(&finalStack),
-                          *val2 = peek_double(&finalStack);
-                    *val2 = miniSolve(*val2,val1, pop_char(&oppStack));
+            switch (data[i]) {
+                case '(':
+                case '^':
+                case 'v':
+                    push_char(&oppStack,data[i]);
+                    break;
+                case '*':
+                case '/': {
+                        while(peek_char(&oppStack) != NULL && PRECEDENCE_LVL1_CHECK) {
+                            double val2 = pop_double(&finalStack),
+                                    *val1 = peek_double(&finalStack);
+                            if(val1 == NULL) {
+                                push_double(&finalStack,0);
+                                val1 = peek_double(&finalStack);
+                            }
+                            *val1 = miniSolve(*val1,val2,pop_char(&oppStack));
+                        }
+                        if(data[i] == '/')
+                            isAlternativeModeOn_DIVISON = true;
+                        push_char(&oppStack,'*');
+                    }
+                    break;
+                case '+':
+                case '-': {
+                        while(peek_char(&oppStack) != NULL && PRECEDENCE_LVL2_CHECK){
+                            double val2 = pop_double(&finalStack),
+                                    *val1 = peek_double(&finalStack);
+                            if(val1 == NULL) {
+                                push_double(&finalStack,0);
+                                val1 = peek_double(&finalStack);
+                            }
+                            *val1 = miniSolve(*val1,val2,pop_char(&oppStack));
+                        }
+                        if(data[i] == '-')
+                            isAlternativeModeOn_MINUS = true;
+                        push_char(&oppStack,'+');
+                    }
+                    break;
+                case ')': {
+                        while(peek_char(&oppStack) != NULL && *peek_char(&oppStack) != '(') {
+                            double val2 = pop_double(&finalStack),
+                                    *val1 = peek_double(&finalStack);
+                            if(val1 == NULL) {
+                                push_double(&finalStack,0);
+                                val1 = peek_double(&finalStack);
+                            }
+                            *val1 = miniSolve(*val1,val2,pop_char(&oppStack));
+                        }
+                        pop_char(&oppStack);
+                    }
+                    break;
+                //It takes line break as the end of process
+                //In that case we do final flattening
+                case '\n': {
+                    while(oppStack.size) {
+                        double val2 = pop_double(&finalStack),
+                                *val1 = peek_double(&finalStack);
+                        *val1 = miniSolve(*val1,val2,pop_char(&oppStack));
+                    }
                 }
-
-                pop_char(&oppStack);
-
-                char *checkChar = peek_char(&oppStack);
-
-                if(checkChar != NULL && (*checkChar == '*' || *checkChar == '/')) {
-                    double val1 = pop_double(&finalStack),
-                            *val2 = peek_double(&finalStack);
-                    *val2 = miniSolve(*val2,val1, pop_char(&oppStack));
-                }
-
+                break;
             }
 
         }
 
     }
 
-//    printStack("%lf",finalStack);
-//    printStack("%c",oppStack);
-
     double output = finalStack.real[0];
-
-    for(size_t i = 1;i<oppStack.size+1;i++) {
-        output = miniSolve(output, finalStack.real[i], oppStack.real[i - 1]);
-    }
 
     Stack_double_RealFlush(&finalStack);
     Stack_char_RealFlush(&oppStack);
