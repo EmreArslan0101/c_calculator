@@ -34,6 +34,24 @@ double miniSolve(double val1,double val2,char opperand) {
     }
 }
 
+void errorAt(size_t i,char* buffer,size_t bufferRealSize) {
+    printf("\x1b[31m""Invalid character in operation string at %ld\n",i);
+
+    for(size_t j = 0;j<bufferRealSize-1;j++){
+        if(j == i) {
+            printf("\033[4m""%c""\033[0m""\x1b[31m",buffer[j]);
+        }
+        else {
+            printf("%c",buffer[j]);
+        }
+    }
+
+    printf("%c""\x1b[0m",buffer[bufferRealSize-1]);
+
+    exit(EXIT_FAILURE);
+
+};
+
 char* bufferHandler(char* buffer) {
 
     size_t bufferRealSize = strlen(buffer);
@@ -46,31 +64,44 @@ char* bufferHandler(char* buffer) {
         exit(EXIT_FAILURE);
     }
 
-   for(size_t i = 0;i<bufferRealSize-1;i++) {
+    for(size_t i = 0;i<bufferRealSize-1;i++) {
 
-        if(
-            buffer[i] < 40 ||
-            buffer[i] > 57 ||
-            buffer[i] == ','
-        ) {
+        if(IS_IT_OPERATOR(buffer[i])) {
 
-            if(buffer[i] == '^' || buffer[i] == 'v') continue;
+            if(IS_IT_OPERATOR(buffer[i+1]))
+                errorAt(i+1,buffer,bufferRealSize);
 
-            printf("\x1b[31m""Invalid character in operation string at %ld\n",i);
+            if(buffer[i+1] == 10)
+                errorAt(i,buffer,bufferRealSize);
 
-            for(size_t j = 0;j<bufferRealSize-1;j++){
-                if(j == i) {
-                    printf("\033[4m""%c""\033[0m""\x1b[31m",buffer[j]);
-                }
-                else {
-                    printf("%c",buffer[j]);
-                }
+        }
+        else {
+
+            if(buffer[i] == 'x') {
+
+                //HEXADECIMAL NUMBER CHECK
+
+                if(buffer[i-1] != '0')
+                    errorAt(i, buffer,bufferRealSize);
+
+                while(IS_IT_HEX(buffer[1+i++]));
+
+                i++;
+
+                if(!IS_IT_OPERATOR(buffer[i]) && buffer[i] != 10)
+                    errorAt(i,buffer,bufferRealSize);
+
+            }
+            else {
+
+                //DEFAULT (DECIMAL) NUMBER CHECK
+
+                while(IS_IT_DEC(buffer[i]))
+                    i++;
             }
 
-            printf("%c""\x1b[0m",buffer[bufferRealSize-1]);
-
-            exit(EXIT_FAILURE);
         }
+
     }
 
     //INVALID CHARACTER CHECK
@@ -80,8 +111,24 @@ char* bufferHandler(char* buffer) {
     int parenthesisCount = 0;
 
     for(size_t i = 0;i<bufferRealSize;i++) {
-        if(buffer[i] == '(') parenthesisCount++;
-        if(buffer[i] == ')') parenthesisCount--;
+        if(buffer[i] == '(') {
+            if(i != 0 && (buffer[i-1] == ')' || IS_IT_HEX(buffer[i-1]))) {
+                errorAt(i-1,buffer,bufferRealSize);
+            }
+            if(i != bufferRealSize && IS_IT_OPERATOR(buffer[i+1])) {
+                errorAt(i+1,buffer,bufferRealSize);
+            }
+            parenthesisCount++;
+        }
+        if(buffer[i] == ')') {
+            if(i != 0 && IS_IT_OPERATOR(buffer[i-1])) {
+                errorAt(i-1,buffer,bufferRealSize);
+            }
+            if(i != bufferRealSize && (buffer[i+1] == '(' || IS_IT_HEX(buffer[i+1]))) {
+                errorAt(i+1,buffer,bufferRealSize);
+            }
+            parenthesisCount--;
+        };
     }
 
     if(parenthesisCount > 0) {
@@ -124,20 +171,40 @@ double solver(char* data) {
 
     for(size_t i = 0;i<strlen(data);i++) {
 
-        if(IS_IT_NUM(data[i])) {
+        if(IS_IT_NUM(DEC,data[i])) {
 
             double currNum = 0;
             char floatPartCount = 0,isFloat = false;
 
-            while(IS_IT_NUM(data[i])) {
-                if(data[i] == '.') {
-                    i++;
-                    isFloat = true;
-                    continue;
+            if(data[i] == '0' && data[i+1] == 'x') {
+                i += 2;
+                while(IS_IT_HEX(data[i])) {
+                    if(data[i] == '.') {
+                        i++;
+                        isFloat = true;
+                        continue;
+                    }
+                    if(isFloat) floatPartCount++;
+                    if(IS_IT_DEC(data[i]))
+                        currNum = currNum*16 + data[i++]-48;
+                    if('A' <= data[i] && data[i] <= 'F')
+                        currNum = currNum*16 + data[i++]-55;
+                    if('a' <= data[i] && data[i] <= 'f')
+                        currNum = currNum*16 + data[i++]-87;
                 }
-                if(isFloat) floatPartCount++;
-                currNum = currNum*10 + data[i++]-48;
             }
+            else {
+                while(IS_IT_DEC(data[i])) {
+                    if(data[i] == '.') {
+                        i++;
+                        isFloat = true;
+                        continue;
+                    }
+                    if(isFloat) floatPartCount++;
+                    currNum = currNum*10 + data[i++]-48;
+                }
+            }
+
             //We should go back one char because in the 'while' loop we move one more char
             i--;
 
@@ -152,7 +219,7 @@ double solver(char* data) {
                 isAlternativeModeOn_DIVISON = false;
             }
 
-            push_double(&finalStack,currNum);
+            push_double(&finalStack,currNum*pow(10,-floatPartCount));
 
         }
         else {
@@ -257,7 +324,9 @@ int main(int argc, char** argv) {
     buffer = bufferHandler(buffer);
 //    printf("%s",buffer); // For showing final operation string while debugging or development
 
-    printf(">>> %lf\n", solver(buffer));
+    solution_t solution = solver(buffer);
+
+    printf(">>> %lf\n", solution);
 
     free(buffer);
 
