@@ -26,3 +26,5 @@
 #define PRECEDENCE_LVL2_CHECK (*peek_char(&oppStack) == '*' || PRECEDENCE_LVL1_CHECK)
 typedef double solution_t;
 
+#define NUM_FLOATER (nummode == 3 ? 16.0 : nummode == 2 ? 10.0 : nummode == 1 ? 8.0 : 2.0)
+

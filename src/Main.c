@@ -14,6 +14,8 @@
 #include "Stack.c"
 #include "Defines.c"
 
+typedef char nummode_t;
+
 double miniSolve(double val1,double val2,char opperand) {
     switch(opperand) {
         case '+':
@@ -76,28 +78,59 @@ char* bufferHandler(char* buffer) {
 
         }
         else {
+            switch(buffer[i]) {
+                case '0':
+                    break;
+                case 'x': {
+                        //HEXADECIMAL NUMBER CHECK
+                        if(buffer[i-1] != '0')
+                            errorAt(i, buffer,bufferRealSize);
 
-            if(buffer[i] == 'x') {
+                        while(IS_IT_NUM(HEX,buffer[i+1]))
+                            i++;
 
-                //HEXADECIMAL NUMBER CHECK
+                        i++;
 
-                if(buffer[i-1] != '0')
-                    errorAt(i, buffer,bufferRealSize);
+                        if(!IS_IT_OPERATOR(buffer[i]) && buffer[i] != 10)
+                            errorAt(i,buffer,bufferRealSize);
 
-                while(IS_IT_HEX(buffer[1+i++]));
+                    }
+                    break;
+                case 'b': {
+                        //BINARY NUMBER CHECK
+                        if(buffer[i-1] != '0')
+                            errorAt(i, buffer,bufferRealSize);
 
-                i++;
+                        while(IS_IT_NUM(BIN,buffer[i+1]))
+                            i++;
 
-                if(!IS_IT_OPERATOR(buffer[i]) && buffer[i] != 10)
-                    errorAt(i,buffer,bufferRealSize);
+                        i++;
 
-            }
-            else {
+                        if(!IS_IT_OPERATOR(buffer[i]) && buffer[i] != 10)
+                            errorAt(i,buffer,bufferRealSize);
 
-                //DEFAULT (DECIMAL) NUMBER CHECK
+                    }
+                    break;
+                case 'o': {
+                        //OCTAL NUMBER CHECK
+                        if(buffer[i-1] != '0')
+                            errorAt(i, buffer,bufferRealSize);
 
-                while(IS_IT_DEC(buffer[i]))
-                    i++;
+                        while(IS_IT_NUM(OCT,buffer[i+1]))
+                            i++;
+
+                        i++;
+
+                        if(!IS_IT_OPERATOR(buffer[i]) && buffer[i] != 10)
+                            errorAt(i,buffer,bufferRealSize);
+
+                    }
+                    break;
+                default: {
+                        while(IS_IT_NUM(DEC,buffer[i]))
+                            i++;
+                    }
+                    break;
             }
 
         }
@@ -175,26 +208,74 @@ double solver(char* data) {
 
             double currNum = 0;
             char floatPartCount = 0,isFloat = false;
+            nummode_t nummode = 0;
 
-            if(data[i] == '0' && data[i+1] == 'x') {
-                i += 2;
-                while(IS_IT_HEX(data[i])) {
-                    if(data[i] == '.') {
+            if(data[i] == '0') {
+                i++;
+                switch(data[i]) {
+                    case 'x': {
                         i++;
-                        isFloat = true;
-                        continue;
+                        while(IS_IT_NUM(HEX,data[i])) {
+                            if (data[i] == '.') {
+                                i++;
+                                isFloat = true;
+                                continue;
+                            }
+                            if (isFloat) floatPartCount++;
+                            if (IS_IT_DEC(data[i]))
+                                currNum = currNum * 16 + data[i++] - 48;
+                            if ('A' <= data[i] && data[i] <= 'F')
+                                currNum = currNum * 16 + data[i++] - 55;
+                            if ('a' <= data[i] && data[i] <= 'f')
+                                currNum = currNum * 16 + data[i++] - 87;
+                        }
+                        nummode = 3;
                     }
-                    if(isFloat) floatPartCount++;
-                    if(IS_IT_DEC(data[i]))
-                        currNum = currNum*16 + data[i++]-48;
-                    if('A' <= data[i] && data[i] <= 'F')
-                        currNum = currNum*16 + data[i++]-55;
-                    if('a' <= data[i] && data[i] <= 'f')
-                        currNum = currNum*16 + data[i++]-87;
+                    break;
+                    case 'o': {
+                        i++;
+                        while(IS_IT_NUM(OCT,data[i])) {
+                            if (data[i] == '.') {
+                                i++;
+                                isFloat = true;
+                                continue;
+                            }
+                            if (isFloat) floatPartCount++;
+                            currNum = currNum * 8 + data[i++] - 48;
+                        }
+                        nummode = 1;
+                    }
+                    break;
+                    case 'b': {
+                        i++;
+                        while(IS_IT_NUM(BIN,data[i])) {
+                            if (data[i] == '.') {
+                                i++;
+                                isFloat = true;
+                                continue;
+                            }
+                            if (isFloat) floatPartCount++;
+                            currNum = currNum * 2 + data[i++] - 48;
+                        }
+                    }
+                    break;
+                    default: {
+                        while(IS_IT_NUM(DEC,data[i])) {
+                            if(data[i] == '.') {
+                                i++;
+                                isFloat = true;
+                                continue;
+                            }
+                            if(isFloat) floatPartCount++;
+                            currNum = currNum*10 + data[i++]-48;
+                        }
+                        nummode = 2;
+                    }
                 }
+
             }
             else {
-                while(IS_IT_DEC(data[i])) {
+                while(IS_IT_NUM(DEC,data[i])) {
                     if(data[i] == '.') {
                         i++;
                         isFloat = true;
@@ -203,6 +284,7 @@ double solver(char* data) {
                     if(isFloat) floatPartCount++;
                     currNum = currNum*10 + data[i++]-48;
                 }
+                nummode = 2;
             }
 
             //We should go back one char because in the 'while' loop we move one more char
@@ -219,7 +301,7 @@ double solver(char* data) {
                 isAlternativeModeOn_DIVISON = false;
             }
 
-            push_double(&finalStack,currNum*pow(10,-floatPartCount));
+            push_double(&finalStack,currNum*pow(NUM_FLOATER,-floatPartCount));
 
         }
         else {
